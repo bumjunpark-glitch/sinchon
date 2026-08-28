@@ -825,6 +825,7 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
 .pin.e{background:transparent;border:1.5px dashed var(--dim);box-shadow:none}
 .pin.sel{outline:3px solid var(--ac);outline-offset:2px}
 .leaflet-container{background:var(--line2)!important;font-family:inherit!important}
+#map.dk .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)}
 .leaflet-popup-content-wrapper{background:var(--card);color:var(--ink);border-radius:9px}
 .leaflet-popup-tip{background:var(--card)}
 .leaflet-popup-content{margin:9px 12px;font-size:13px}
@@ -958,11 +959,11 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
     return matchMedia('(prefers-color-scheme:dark)').matches; }
 
   var map=L.map('map',{zoomControl:false,attributionControl:true});
-  L.tileLayer(dark()?'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    :'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    {maxZoom:19,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  if(dark()) document.getElementById('map').classList.add('dk');
 
-  var marks={}, pts=[];
+  var marks={}, pts=[], hot=[];
   cards.forEach(function(c){
     var lat=+c.dataset.lat, lng=+c.dataset.lng;
     if(!lat||!lng) return;
@@ -977,8 +978,9 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
     mk.on('click',function(){ openCard(c,true); });
     marks[c.dataset.id]={mk:mk,c:c,lat:lat,lng:lng};
     pts.push([lat,lng]);
+    if(!empty) hot.push([lat,lng]);
   });
-  map.fitBounds(pts,{padding:[30,30]});
+  map.fitBounds(hot.length?hot:pts,{padding:[40,40],maxZoom:15});
 
   var layer=L.layerGroup().addTo(map);
   function sync(fit){
@@ -1111,8 +1113,8 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
   });
 
   document.getElementById('fit').addEventListener('click',function(){
-    following=false; btnLoc.classList.remove('on'); sync(true);
-    if(!visible().length) map.fitBounds(pts,{padding:[30,30]});
+    following=false; btnLoc.classList.remove('on');
+    map.fitBounds(pts,{padding:[30,30]});
   });
 
   addEventListener('resize',function(){ map.invalidateSize(); });
