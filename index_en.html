@@ -264,7 +264,10 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
 #map.zo .pin.e{width:7px;height:7px;background:transparent}
 #map.zo .pin.sel{transform:scale(1.5)}
 .maplibregl-map{background:var(--line2);font-family:inherit!important}
+/* 래스터로 떨어졌을 때만 채도를 낮춘다. 벡터 positron 은 원래 차분하다 */
+#map.rast .maplibregl-canvas{filter:saturate(.32) brightness(1.05) contrast(.9)}
 #map.dk .maplibregl-canvas{filter:invert(1) hue-rotate(180deg) saturate(.55) brightness(.92)}
+#map.dk.rast .maplibregl-canvas{filter:invert(1) hue-rotate(180deg) saturate(.3) brightness(.9)}
 .mewrap{position:relative;width:22px;height:22px}
 .acc{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;
  background:var(--me);opacity:.13;pointer-events:none}
@@ -560,36 +563,34 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
       ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,
       attribution:'&copy; OpenStreetMap contributors'}},
     layers:[{id:'o',type:'raster',source:'o'}]};
-  var BLANKST={version:8,sources:{},layers:[{id:'bg',type:'background',
-    paint:{'background-color':'#e6eaee'}}]};
-  var map=new maplibregl.Map({container:'map',style:BLANKST,center:[126.9370,37.5560],zoom:13,
+  // 순서가 중요하다. 예쁜 벡터를 먼저 띄우려다 실패하면 화면이 백지가 된다.
+  // 그래서 확실히 그려지는 래스터로 먼저 띄우고, 벡터가 "실제로 다 그려진 것"을
+  // 확인했을 때만 갈아끼운다. 최악이어도 예전 지도는 나온다.
+  var map=new maplibregl.Map({container:'map',style:RASTER,center:[126.9370,37.5560],zoom:13,
     attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});
   map.touchZoomRotate.disableRotation();
+  document.getElementById('map').classList.add('rast');
 
-  // 스타일을 그대로 쓰면 안 된다. positron 안에 ne2_shaded(저줌 음영기복) 소스가 있는데
-  // 그게 응답을 안 하면 MapLibre 는 스타일 전체를 "미로딩"으로 보고 레이어를 하나도 안 그린다.
-  // 벡터 타일은 멀쩡한데 지도가 백지가 된다. 그래서 받아서 그 소스만 떼고 넣는다.
-  var styled=false;
-  function useRaster(){ if(styled) return; styled=true; try{ map.setStyle(RASTER); }catch(e){} }
-  fetch(OFM).then(function(r){ return r.json(); }).then(function(st){
-    if(styled) return;
-    ['ne2_shaded'].forEach(function(k){ if(st.sources) delete st.sources[k]; });
-    st.layers=(st.layers||[]).filter(function(l){ return l.source!=='ne2_shaded'; });
-    try{ map.setStyle(st); styled=true; }catch(e){ useRaster(); }
-  }).catch(useRaster);
-  // 안전망은 "아직 빈 스타일에 머물러 있는가"만 본다.
-  // isStyleLoaded() 로 재면 정상인데도 로딩이 길 때 래스터로 갈아엎어서
-  // 반쯤 그리다 만 지도가 된다 (실제로 그랬다).
-  setTimeout(function(){
-    var st; try{ st=map.getStyle(); }catch(e){}
-    var n=st&&st.sources?Object.keys(st.sources).length:0;
-    if(n===0){ styled=false; useRaster(); }
-  }, 12000);
+  function upgrade(){
+    fetch(OFM).then(function(r){ return r.json(); }).then(function(st){
+      if(!st||!st.sources) throw new Error('bad style');
+      // positron 안의 ne2_shaded(저줌 음영기복)는 응답이 없을 때가 있는데,
+      // 소스 하나가 안 끝나면 MapLibre 는 레이어를 하나도 안 그린다. 그래서 뗀다.
+      delete st.sources.ne2_shaded;
+      st.layers=(st.layers||[]).filter(function(l){ return l.source!=='ne2_shaded'; });
 
-  map.on('error',function(ev){
-    var msg=(ev&&ev.error&&ev.error.message)||'';
-    if(msg.indexOf('style')>=0||msg.indexOf('Failed to fetch')>=0) useRaster();
-  });
+      var settled=false;
+      var to=setTimeout(function(){          // 8초 안에 다 못 그리면 없던 일로
+        if(settled) return; settled=true;
+        try{ map.setStyle(RASTER);
+          document.getElementById('map').classList.add('rast'); }catch(e){}
+      },8000);
+      map.once('idle',function(){ if(!settled){ settled=true; clearTimeout(to);
+        document.getElementById('map').classList.remove('rast'); } });
+      map.setStyle(st);
+    }).catch(function(){ /* 래스터 그대로 둔다 */ });
+  }
+  map.once('idle', upgrade);   // 래스터가 한 번 그려진 뒤에 시도
   if(dark()) document.getElementById('map').classList.add('dk');
 
   var marks={}, pts=[], hot=[];
