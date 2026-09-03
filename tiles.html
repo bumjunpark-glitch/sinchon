@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>지도 스타일 고르기</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<style>
+:root{--bg:#f4f6f7;--card:#fff;--ink:#141a1f;--mut:#69737e;--line:#e0e5e9;--q:#0b7a6b}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1317;--card:#171c21;--ink:#e6eaee;
+ --mut:#8b959f;--line:#252c33;--q:#3fbfa8}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:15px;
+ font-family:'IBM Plex Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+header{padding:20px 16px 10px;max-width:1100px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px;letter-spacing:-.02em}
+p{margin:0;color:var(--mut);font-size:13.5px;line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;
+ padding:14px 16px 60px;max-width:1100px;margin:0 auto}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mp{height:290px;background:var(--line)}
+.cap{padding:9px 12px 11px;font-size:13px}
+.cap b{display:block;font-weight:600;margin-bottom:2px}
+.cap span{color:var(--mut);font-size:11.5px}
+.pin{width:28px;height:28px;border-radius:10px;background:var(--card);
+ border:2px solid var(--q);display:flex;align-items:center;justify-content:center;
+ font-size:14px;line-height:1;box-shadow:0 2px 7px -1px rgba(0,0,0,.3)}
+.mut .leaflet-tile-pane{filter:saturate(.32) brightness(1.05) contrast(.9)}
+.leaflet-control-attribution{font-size:9px;opacity:.6}
+</style></head><body>
+<header>
+  <h1>지도 스타일 고르기</h1>
+  <p>같은 위치(신촌), 같은 마커. 어느 게 제일 나은지 번호로 알려주세요.<br>
+  회색으로 남는 칸은 그 서비스가 키를 요구해서 안 뜨는 겁니다 — 그건 후보에서 빠집니다.</p>
+</header>
+<div class="grid" id="g"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+var C=[37.5560,126.9370], Z=15;
+// 신촌 근처 실제 좌표 몇 개 (마커가 어떻게 읽히는지 보려고)
+var PTS=[[37.5572,126.9372,'☕'],[37.5548,126.9361,'☕'],[37.5559,126.9389,'🍜'],
+         [37.5537,126.9377,'☕'],[37.5566,126.9345,'🍺'],[37.5551,126.9401,'☕']];
+
+var RASTER=[
+ ['1','OSM 기본 (지금 이거)','tile.openstreetmap.org · 키 없음',
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',false],
+ ['2','OSM + 채도 낮춤','같은 타일에 CSS 필터만 (지금 배포된 버전)',
+  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',true],
+ ['3','CARTO Positron','basemaps.cartocdn.com · 키 필요할 수 있음',
+  'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',false],
+ ['4','CARTO Voyager','조금 더 컬러풀',
+  'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',false],
+ ['5','Esri Light Gray','server.arcgisonline.com · 키 없음',
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',false],
+ ['6','Stadia Alidade Smooth','키 필요 (등록하면 무료)',
+  'https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png',false],
+];
+
+function icon(t){ return L.divIcon({className:'',html:'<div class="pin">'+t+'</div>',
+  iconSize:[28,28],iconAnchor:[14,14]}); }
+
+function box(id,title,sub){
+  var d=document.createElement('div'); d.className='item';
+  d.innerHTML='<div class="mp" id="m'+id+'"></div><div class="cap"><b>'+id+'. '+title+
+    '</b><span>'+sub+'</span></div>';
+  document.getElementById('g').appendChild(d);
+}
+
+RASTER.forEach(function(r){
+  var id=r[0]; box(id,r[1],r[2]);
+  var el=document.getElementById('m'+id);
+  if(r[4]) el.className+=' mut';
+  var m=L.map(el,{zoomControl:false,attributionControl:true}).setView(C,Z);
+  L.tileLayer(r[3],{maxZoom:19,attribution:'&copy; 지도 제공사'}).addTo(m);
+  PTS.forEach(function(p){ L.marker([p[0],p[1]],{icon:icon(p[2])}).addTo(m); });
+});
+
+// 7. OpenFreeMap (벡터, 키 없음)
+box('7','OpenFreeMap Positron','벡터 타일 · 키 없음 · MapLibre 필요');
+try{
+  var mm=new maplibregl.Map({container:'m7',
+    style:'https://tiles.openfreemap.org/styles/positron',
+    center:[C[1],C[0]],zoom:Z-1,attributionControl:true});
+  PTS.forEach(function(p){
+    var d=document.createElement('div'); d.className='pin'; d.textContent=p[2];
+    new maplibregl.Marker({element:d}).setLngLat([p[1],p[0]]).addTo(mm);
+  });
+}catch(e){ document.getElementById('m7').textContent=''; }
+
+// 8. OpenFreeMap Bright
+box('8','OpenFreeMap Bright','같은 서비스, 조금 더 컬러풀');
+try{
+  var m8=new maplibregl.Map({container:'m8',
+    style:'https://tiles.openfreemap.org/styles/bright',
+    center:[C[1],C[0]],zoom:Z-1,attributionControl:true});
+  PTS.forEach(function(p){
+    var d=document.createElement('div'); d.className='pin'; d.textContent=p[2];
+    new maplibregl.Marker({element:d}).setLngLat([p[1],p[0]]).addTo(m8);
+  });
+}catch(e){}
+</script>
+</body></html>
