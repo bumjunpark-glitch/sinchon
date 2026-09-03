@@ -560,17 +560,29 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
       ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,
       attribution:'&copy; OpenStreetMap contributors'}},
     layers:[{id:'o',type:'raster',source:'o'}]};
-  var map=new maplibregl.Map({container:'map',style:OFM,center:[126.9370,37.5560],zoom:13,
+  var BLANKST={version:8,sources:{},layers:[{id:'bg',type:'background',
+    paint:{'background-color':'#e6eaee'}}]};
+  var map=new maplibregl.Map({container:'map',style:BLANKST,center:[126.9370,37.5560],zoom:13,
     attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});
   map.touchZoomRotate.disableRotation();
-  var fellBack=false;
+
+  // 스타일을 그대로 쓰면 안 된다. positron 안에 ne2_shaded(저줌 음영기복) 소스가 있는데
+  // 그게 응답을 안 하면 MapLibre 는 스타일 전체를 "미로딩"으로 보고 레이어를 하나도 안 그린다.
+  // 벡터 타일은 멀쩡한데 지도가 백지가 된다. 그래서 받아서 그 소스만 떼고 넣는다.
+  var styled=false;
+  function useRaster(){ if(styled) return; styled=true; try{ map.setStyle(RASTER); }catch(e){} }
+  fetch(OFM).then(function(r){ return r.json(); }).then(function(st){
+    if(styled) return;
+    ['ne2_shaded'].forEach(function(k){ if(st.sources) delete st.sources[k]; });
+    st.layers=(st.layers||[]).filter(function(l){ return l.source!=='ne2_shaded'; });
+    try{ map.setStyle(st); styled=true; }catch(e){ useRaster(); }
+  }).catch(useRaster);
+  // 그래도 6초 안에 못 그리면 래스터로 되돌린다
+  setTimeout(function(){ if(!map.isStyleLoaded()) { styled=false; useRaster(); } }, 6000);
+
   map.on('error',function(ev){
-    // 스타일을 못 받으면 한 번만 래스터로 되돌린다
-    if(fellBack) return;
     var msg=(ev&&ev.error&&ev.error.message)||'';
-    if(msg.indexOf('style')>=0||msg.indexOf('Failed to fetch')>=0||msg.indexOf('sprite')>=0){
-      fellBack=true; try{ map.setStyle(RASTER); }catch(e){}
-    }
+    if(msg.indexOf('style')>=0||msg.indexOf('Failed to fetch')>=0) useRaster();
   });
   if(dark()) document.getElementById('map').classList.add('dk');
 
