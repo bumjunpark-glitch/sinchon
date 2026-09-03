@@ -239,7 +239,10 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
  border-bottom:26px solid var(--me);opacity:.45;
  transform-origin:50% 100%;transform:translate(-50%,-100%)}
 /* 마커: 이모지 칩. 멀리서는 점, 가까이 오면 칩으로 편다 */
-.pin{width:28px;height:28px;border-radius:10px;background:var(--sheet);
+/* .pinwrap 은 MapLibre 가 위치를 넣는 자리 — 여기엔 transition 을 절대 걸지 않는다 */
+.pinwrap{width:0;height:0;display:flex;align-items:center;justify-content:center;
+ will-change:transform;cursor:pointer}
+.pin{position:absolute;width:28px;height:28px;border-radius:10px;background:var(--sheet);
  border:2px solid var(--q);display:flex;align-items:center;justify-content:center;
  font-size:14px;line-height:1;box-shadow:0 2px 7px -1px rgba(0,0,0,.3);
  transition:opacity .18s,transform .18s,border-radius .18s;transform-origin:50% 50%}
@@ -250,7 +253,8 @@ body.app .fabs{position:absolute;right:14px;top:-58px;z-index:16;
 /* 조건에 안 맞는 곳 — 지우지 않고 물러나게 한다 */
 .pin.off{opacity:.3;transform:scale(.42);box-shadow:none}
 .pin.e.off{opacity:.14}
-.pin.sel{transform:scale(1.22);box-shadow:0 4px 14px -2px rgba(0,0,0,.45);z-index:5}
+.pin.sel{transform:scale(1.22);box-shadow:0 4px 14px -2px rgba(0,0,0,.45)}
+.pinwrap:has(.pin.sel){z-index:5}
 .pin.sel.off{opacity:1;transform:scale(1.22)}
 /* 줌 아웃: 칩이 서로 겹쳐서 뭉개진다. 점으로 접는다 */
 #map.zo .pin{width:12px;height:12px;border-radius:50%;font-size:0;border-width:2.5px;
@@ -580,12 +584,17 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
     var ks=c.dataset.k.split(' ');
     var ico = ks.indexOf('bar')>=0 ? '\uD83C\uDF7A'
             : ks.indexOf('cafe')>=0 ? '\u2615' : '\uD83C\uDF5C';
+    // 바깥(wrap)은 MapLibre가 위치를 잡는 용도로만 두고, 꾸미기는 안쪽(pin)에서 한다.
+    // 한 요소에 다 하면 지도를 움직일 때 위치 transform 이 transition 을 타서 아이콘이 끌려온다.
+    var wrap=document.createElement('div');
+    wrap.className='pinwrap';
     var el=document.createElement('div');
     el.className='pin '+cls;
     el.textContent = empty?'':ico;
-    el.addEventListener('click',function(ev){ ev.stopPropagation(); openCard(c,true); });
-    var mk=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]);
-    marks[c.dataset.id]={mk:mk,el:el,c:c,lat:lat,lng:lng,on:false};
+    wrap.appendChild(el);
+    wrap.addEventListener('click',function(ev){ ev.stopPropagation(); openCard(c,true); });
+    var mk=new maplibregl.Marker({element:wrap,anchor:'center'}).setLngLat([lng,lat]);
+    marks[c.dataset.id]={mk:mk,el:el,c:c,lat:lat,lng:lng,on:false,empty:empty};
     pts.push([lat,lng]);
     if(!empty) hot.push([lat,lng]);
   });
@@ -611,12 +620,15 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
 
   // 조건에 안 맞는 곳도 지도에서 지우지 않고 흐리게 남긴다.
   // 필터를 걸었을 때 지도가 텅 비는 대신 "여기가 걸러졌구나"가 보이게.
+  function showBlank(){ var b=document.getElementById('f-blank'); return !!(b&&b.checked); }
   function sync(fit){
     var k=curKind(), vis=[];
     cards.forEach(function(c){
       var e=marks[c.dataset.id]; if(!e) return;
       var inTab=(' '+c.dataset.k+' ').indexOf(' '+k+' ')>=0;
-      if(!inTab){ if(e.on){ e.mk.remove(); e.on=false; } return; }
+      // 접어둔 빈 곳까지 지도에 얹으면 마커가 398개가 되고 팬이 뚝뚝 끊긴다
+      var want = inTab && !(e.empty && !showBlank());
+      if(!want){ if(e.on){ e.mk.remove(); e.on=false; } return; }
       if(!e.on){ e.mk.addTo(map); e.on=true; }
       var vs=getComputedStyle(c).display!=='none';
       e.el.classList.toggle('off',!vs);
