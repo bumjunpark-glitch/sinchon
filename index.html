@@ -577,8 +577,14 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
     st.layers=(st.layers||[]).filter(function(l){ return l.source!=='ne2_shaded'; });
     try{ map.setStyle(st); styled=true; }catch(e){ useRaster(); }
   }).catch(useRaster);
-  // 그래도 6초 안에 못 그리면 래스터로 되돌린다
-  setTimeout(function(){ if(!map.isStyleLoaded()) { styled=false; useRaster(); } }, 6000);
+  // 안전망은 "아직 빈 스타일에 머물러 있는가"만 본다.
+  // isStyleLoaded() 로 재면 정상인데도 로딩이 길 때 래스터로 갈아엎어서
+  // 반쯤 그리다 만 지도가 된다 (실제로 그랬다).
+  setTimeout(function(){
+    var st; try{ st=map.getStyle(); }catch(e){}
+    var n=st&&st.sources?Object.keys(st.sources).length:0;
+    if(n===0){ styled=false; useRaster(); }
+  }, 12000);
 
   map.on('error',function(ev){
     var msg=(ev&&ev.error&&ev.error.message)||'';
