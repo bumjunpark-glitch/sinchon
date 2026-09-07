@@ -1,0 +1,36 @@
+{
+ "display": "standalone",
+ "background_color": "#0f1317",
+ "theme_color": "#0f1317",
+ "orientation": "portrait-primary",
+ "scope": "./",
+ "icons": [
+  {
+   "src": "./icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "./icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "./icon-maskable.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "categories": [
+  "travel",
+  "lifestyle",
+  "navigation"
+ ],
+ "name": "지도에 없는 것들",
+ "short_name": "지도에없는것들",
+ "lang": "ko",
+ "dir": "ltr",
+ "start_url": "./index.html",
+ "description": "별점 말고 공간을 봅니다. 소음·콘센트·화장실·눈치까지, 신촌·마포 415곳."
+}

@@ -15,6 +15,12 @@
 <meta name="theme-color" content="#f4f6f7" media="(prefers-color-scheme:light)">
 <link rel="alternate" hreflang="en" href="https://bumjunpark-glitch.github.io/sinchon/index_en.html">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2032%2032'%3E%3Ccircle%20cx%3D'16'%20cy%3D'16'%20r%3D'15'%20fill%3D'%230f1317'%2F%3E%3Ccircle%20cx%3D'16'%20cy%3D'16'%20r%3D'7'%20fill%3D'%233fbfa8'%2F%3E%3C%2Fsvg%3E">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="지도에 없는 것들">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap">
@@ -565,6 +571,12 @@ body.app #n-me:checked ~ .sheet{top:0}
         <p>341곳은 아직 아무도 안 알려줬습니다. 가보신 곳이 있으면 한 번만 눌러주세요.</p>
         <label class="gm" for="n-list" id="gofill">빈 곳 보기 &rarr;</label>
       </div>
+      <div class="sect" id="installsect" hidden>
+        <h3>앱으로 쓰기</h3>
+        <p>홈 화면에 추가하면 주소창 없이 열리고, 한 번 연 뒤엔 오프라인에서도 열립니다.</p>
+        <button type="button" class="gm" id="installgo">홈 화면에 추가</button>
+        <p id="installhint" hidden>사파리에서 공유 → &#x27;홈 화면에 추가&#x27;를 누르세요.</p>
+      </div>
       <div class="sect">
         <h3>보기</h3>
         <div class="seg" id="themeseg">
@@ -735,6 +747,38 @@ body.app #n-me:checked ~ .sheet{top:0}
   }
   if(qbox) qbox.addEventListener('input',function(){
     clearTimeout(qt); qt=setTimeout(runq,110); });
+
+  // ── 앱으로 설치 ─────────────────────────────────────
+  // file:// 로 열면 서비스워커가 등록 자체를 못 한다. https 에서만 시도한다.
+  var secure = location.protocol==='https:' ||
+    location.hostname==='localhost' || location.hostname==='127.0.0.1';
+  if('serviceWorker' in navigator && secure){
+    addEventListener('load',function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    });
+  }
+  var deferred=null;
+  var iSect=document.getElementById('installsect'),
+      iGo=document.getElementById('installgo'),
+      iHint=document.getElementById('installhint');
+  function standalone(){
+    return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+  }
+  addEventListener('beforeinstallprompt',function(ev){
+    ev.preventDefault(); deferred=ev;
+    if(iSect) iSect.hidden=false;
+  });
+  addEventListener('appinstalled',function(){ if(iSect) iSect.hidden=true; deferred=null; });
+  // iOS 는 beforeinstallprompt 가 없다. 사파리면 안내문만 띄운다.
+  (function(){
+    if(standalone() || !iSect) return;
+    var ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    if(ios){ iSect.hidden=false; if(iGo) iGo.hidden=true; if(iHint) iHint.hidden=false; }
+  })();
+  if(iGo) iGo.addEventListener('click',function(){
+    if(!deferred) return;
+    deferred.prompt(); deferred=null; iSect.hidden=true;
+  });
 
   // ── 처음 여는 사람용 안내 ───────────────────────────
   var IK='spacedb_intro_v1', intro=document.getElementById('intro');
