@@ -560,7 +560,7 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
   // "등고선 지도"처럼 읽혔다. 스타일을 못 받아오면 아래에서 래스터로 되돌린다.
   var OFM='https://tiles.openfreemap.org/styles/positron';
   var RASTER={version:8,sources:{o:{type:'raster',tiles:
-      ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,
+      ['https://tile.openstreetmap.org/{z}/{x}/{y}.png?c=2'],tileSize:256,
       attribution:'&copy; OpenStreetMap contributors'}},
     layers:[{id:'o',type:'raster',source:'o'}]};
   // 순서가 중요하다. 예쁜 벡터를 먼저 띄우려다 실패하면 화면이 백지가 된다.
@@ -593,7 +593,9 @@ body.app #t-bar:checked ~ .tabs label[for="t-bar"] b{color:var(--on-ac)}
       map.setStyle(st);
     }).catch(function(){ /* 래스터 그대로 둔다 */ });
   }
-  map.once('idle', upgrade);   // 래스터가 한 번 그려진 뒤에 시도
+  // 래스터가 그려지든 말든 벡터는 바로 시도한다.
+  // (예전엔 idle 에 묶어놔서, 래스터가 막히면 벡터도 영영 시작을 못 했다)
+  upgrade();
   if(dark()) document.getElementById('map').classList.add('dk');
 
   var marks={}, pts=[], hot=[];
