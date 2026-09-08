@@ -4,7 +4,7 @@
 //
 // 조심한 것: HTML 을 캐시 우선으로 주면 배포해도 옛날 화면이 계속 나온다.
 // 그래서 문서는 네트워크 우선, 실패할 때만 캐시. 나머지는 캐시 우선.
-const VER   = 'v2';
+const VER   = 'v3';
 const SHELL = 'shell-' + VER;   // 우리 파일
 const LIB   = 'lib-'   + VER;   // maplibre (unpkg)
 const MAP   = 'map-'   + VER;   // 지도 스타일·글리프·타일

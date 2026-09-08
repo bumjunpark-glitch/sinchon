@@ -877,19 +877,32 @@ body.app #n-me:checked ~ .sheet{top:0}
       var settled=false;
       // 타일 한 장이 0.8초쯤 걸린다. 넓은 화면은 수십 장이라 idle 까지 10초를 넘기는 게
       // 정상이다. 그래서 시간이 아니라 "스타일이 붙었는가"로 판정하고, 넉넉히 기다린다.
+      function back(){ try{ map.setStyle(RASTER); mapEl0.classList.add('rast'); }catch(e){} }
       var to=setTimeout(function(){
         if(settled) return; settled=true;
         if(map.isStyleLoaded()){ mapEl0.classList.remove('rast'); return; }  // 그리는 중
-        try{ map.setStyle(RASTER); mapEl0.classList.add('rast'); }catch(e){}
+        back();
       },20000);
+      // 20초는 "느리게 그려지는 중"에 맞춘 시간이라, 아예 안 붙은 경우엔 너무 길다.
+      // 안 붙은 건 5초면 안다: setStyle 이 성공했으면 소스는 바로 생긴다.
+      // 소스가 0개면 그건 로딩이 아니라 실패다. 백지로 15초를 더 보게 두지 않는다.
+      setTimeout(function(){
+        if(settled) return;
+        var n=0; try{ n=Object.keys((map.getStyle()||{}).sources||{}).length; }catch(e){}
+        if(n===0){ settled=true; clearTimeout(to); back(); }
+      },5000);
       map.once('idle',function(){ if(!settled){ settled=true; clearTimeout(to);
         mapEl0.classList.remove('rast'); } });
       map.setStyle(st);
     }).catch(function(){ /* 래스터 그대로 둔다 */ });
   }
-  // 래스터가 그려지든 말든 벡터는 바로 시도한다.
-  // (예전엔 idle 에 묶어놔서, 래스터가 막히면 벡터도 영영 시작을 못 했다)
-  upgrade();
+  // 언제 갈아끼우느냐가 이 지도의 유일한 지뢰였다.
+  //   · idle 에 묶으면 → 래스터 타일이 막힌 날 벡터도 영영 시작 못 한다
+  //   · 곧바로 부르면 → 첫 스타일이 아직 로딩 중인데 setStyle 이 겹친다.
+  //     MapLibre 가 "Unable to perform style diff … Rebuilding from scratch" 를 뱉고
+  //     스타일이 영영 안 붙는다. 소스 0개, 타일 요청 0건, 백지.
+  // 그래서 '첫 스타일이 붙은 순간'에만 부른다. 타일은 안 기다린다.
+  if(map.isStyleLoaded()) upgrade(); else map.once('style.load', upgrade);
   if(dark()) document.getElementById('map').classList.add('dk');
 
   var marks={}, pts=[], hot=[];
